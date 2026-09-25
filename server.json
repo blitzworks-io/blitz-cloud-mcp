@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "cloud.blitz/mcp",
+  "title": "blitz.cloud",
+  "description": "Host apps in the EU from your assistant: App Store, Docker, GitHub, databases, logs.",
+  "version": "1.0.0",
+  "websiteUrl": "https://blitz.cloud/docs/ai-assistants/",
+  "repository": {
+    "url": "https://github.com/blitzworks-io/blitz-cloud-mcp",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.blitz.cloud/mcp"
+    }
+  ]
+}
