@@ -1,0 +1,52 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  server-json:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate server.json against the MCP Registry schema
+        run: |
+          pip install --quiet jsonschema==4.26.0
+          schema=$(python -c "import json; print(json.load(open('server.json'))['\$schema'])")
+          curl -fsSL "$schema" -o /tmp/server.schema.json
+          python -c "import json, jsonschema; jsonschema.validate(json.load(open('server.json')), json.load(open('/tmp/server.schema.json')))"
+
+  typescript:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/typescript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: examples/typescript/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install and compile the example
+        run: |
+          pip install --quiet -r examples/python/requirements.txt
+          python -m py_compile examples/python/list_apps.py
+          python -c "import httpx2, mcp.client.streamable_http"
