@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "blitz": {
+      "type": "http",
+      "url": "https://mcp.blitz.cloud/<your name>"
+    }
+  }
+}

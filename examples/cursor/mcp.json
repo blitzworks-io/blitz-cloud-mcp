@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "blitz": {
+      "url": "https://mcp.blitz.cloud/<your name>"
+    }
+  }
+}
