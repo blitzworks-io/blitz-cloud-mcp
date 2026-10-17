@@ -26,6 +26,25 @@ claude mcp add --transport http blitz https://mcp.blitz.cloud/<your name>
 
 Then run `/mcp`, pick `blitz` and sign in.
 
+**Claude Code (plugin)**
+
+```sh
+/plugin marketplace add blitzworks-io/blitz-cloud-mcp
+/plugin install blitz-cloud@blitz-cloud-mcp
+```
+
+This also adds a skill that knows how to deploy an app and give you its address.
+
+**Codex**: add to `~/.codex/config.toml`, then run `codex mcp login blitz`
+
+```toml
+[mcp_servers.blitz]
+url = "https://mcp.blitz.cloud/mcp"
+auth = "oauth"
+```
+
+See [`examples/codex`](examples/codex) for a ready-made `config.toml` and an `AGENTS.md` with the deploy steps.
+
 **Cursor**: add to `~/.cursor/mcp.json`
 
 ```json

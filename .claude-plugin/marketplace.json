@@ -1,0 +1,14 @@
+{
+  "name": "blitz-cloud-mcp",
+  "owner": { "name": "BlitzWorks", "url": "https://blitz.cloud" },
+  "description": "Host apps on blitz.cloud by asking your AI assistant.",
+  "plugins": [
+    {
+      "name": "blitz-cloud",
+      "source": "./",
+      "description": "Host apps in the EU from your assistant: App Store, Docker, GitHub, databases, logs.",
+      "category": "deployment",
+      "tags": ["hosting", "deploy", "docker", "app-store", "eu"]
+    }
+  ]
+}
