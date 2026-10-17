@@ -5,6 +5,7 @@
 | [`claude-code`](claude-code) | The one command that connects Claude Code, with sign-in or with a key |
 | [`cursor`](cursor) | `mcp.json` for Cursor |
 | [`vscode`](vscode) | `mcp.json` for VS Code |
+| [`codex`](codex) | `config.toml` for Codex CLI, and an `AGENTS.md` with the deploy steps |
 | [`python`](python) | Lists your apps with the official MCP Python SDK and an API key |
 | [`typescript`](typescript) | The same with the official TypeScript SDK |
 

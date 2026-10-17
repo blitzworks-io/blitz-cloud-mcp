@@ -1,0 +1,17 @@
+{
+  "name": "blitz-cloud",
+  "displayName": "blitz.cloud",
+  "description": "Host apps in the EU from your assistant: App Store, Docker, GitHub, databases, logs.",
+  "version": "1.0.0",
+  "author": { "name": "BlitzWorks", "url": "https://blitz.cloud" },
+  "homepage": "https://blitz.cloud/docs/ai-assistants/",
+  "repository": "https://github.com/blitzworks-io/blitz-cloud-mcp",
+  "license": "MIT",
+  "keywords": ["hosting", "deploy", "docker", "app-store", "eu"],
+  "mcpServers": {
+    "blitz": {
+      "type": "http",
+      "url": "https://mcp.blitz.cloud/mcp"
+    }
+  }
+}

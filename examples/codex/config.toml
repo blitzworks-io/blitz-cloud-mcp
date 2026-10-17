@@ -1,0 +1,3 @@
+[mcp_servers.blitz]
+url = "https://mcp.blitz.cloud/mcp"
+auth = "oauth"
