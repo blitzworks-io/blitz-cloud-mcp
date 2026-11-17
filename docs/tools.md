@@ -1,84 +1,326 @@
 # Tool reference
 
-The blitz.cloud MCP server has these tools. The server's own list on the [AI tools](https://beta.blitz.cloud/ai) page is always current; this page explains the arguments.
+The blitz.cloud MCP server has 184 tools, grouped below. The server's own list on the [AI tools](https://beta.blitz.cloud/ai) page is always current; this page explains the arguments.
 
 Wherever a tool takes `app`, you can pass the app's name, its address label (`blog` in `blog.lena.blitz.cloud`) or its id. If two apps share a name, the server asks for the id instead of guessing. Databases work the same way with their name or id.
 
-Tools marked **asks first** change nothing until the person has agreed. If the client supports elicitation, the server asks the person directly. Otherwise the call has to be repeated with `confirm: true`.
+The **Needs** column is the lowest role that may call the tool: `read` for anything that only looks, `deploy` for changing apps, and the owner or manage permissions for billing, domains and members. A call above the connection's role is refused with a sentence saying why.
+
+Tools with **yes** under **Asks first** change nothing until the person has agreed. If the client supports elicitation, the server asks the person directly. Otherwise the call has to be repeated with `confirm: true`. Money is never moved by a tool: billing tools return a link the person opens in the browser.
+
+## Account
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `account_activity_list` | `limit` (optional), `before` (optional) | What happened on the account, newest first, as sentences like Settings, Activity shows them: deploys, changed settings, sign-ins, keys, what an AI assistant did. In an organisation, owners and admins see what every member did; everyone else sees what they did themselves. Pass nextBefore as before for the page after. | read |  |
+| `account_referrals_get` | none | The person's own invite link and what it brought: how many signed up with it, how many counted, the free months or credit earned and the rule they count under. If the person joined through somebody's link, how far that is. About the person, not the account this connection acts for. | read |  |
+| `account_status` | none | Start here. Who this connection acts for (account, role, plan) and what is still missing before an app can go online: the account address, a confirmed email, the plan's limits, GitHub for private repositories. Each missing step names the tool to call or the link the person opens in their browser. | read |  |
+
+## Account address
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `address_check` | `name`, `forApp` (optional) | Whether a name is free. By default for the account address (name.prod.page), which every new account claims once with address_claim; with forApp: true for an app's sub-address under the account address. Says why a name can't be used and suggests free ones close to it. | read |  |
+| `address_claim` | `name`, `confirm` (optional) | Claims the account address (name.prod.page), the one step a new account needs before anything can be deployed. Every app gets an address under it. The address is public, and it can be renamed only 14 days after claiming and then once every 14 days, so ask the person for the name first; address_check tells whether it is free. | manage domains | yes |
+| `address_rename` | `name`, `confirm` (optional) | Renames the account's blitz.cloud address, like lena.blitz.cloud to lena-studio.blitz.cloud. Every app's address changes with it; the old ones send visitors on for a while, and apps that wrote the old address into their settings restart. Allowed once in a while: the refusal says from when. address_check tells whether a name is free. Always asks first. | manage domains | yes |
 
 ## Apps
 
-| Tool | Arguments | What it does |
-|---|---|---|
-| `apps_list` | none | Every app with its address, status and what it runs from |
-| `apps_get` | `app` | One app in full: status and why, settings still to fill in, storage, restarts, the last lines it printed when it crashed |
-| `apps_deploy_store` | `catalogId`, `address`, `name`, `onMainAddress` | Installs an App Store app. The store entry decides the image, port, storage and database |
-| `apps_deploy_image` | `image`, `tag`, `address`, `name`, `port`, `worker`, `autoUpdate` | Deploys a public container image. `worker: true` runs it without an address, for bots and background jobs |
-| `apps_deploy_github` | `repo`, `branch`, `address`, `name`, `dockerfile` | Builds a GitHub repository and deploys it. Private repositories need GitHub connected in the dashboard |
-| `apps_update` | `app`, `name`, `address`, `port`, `autoUpdate`, `keepAwake` | Changes only the fields given. A new address replaces the old one |
-| `apps_restart` | `app`, `confirm` | Restarts with the version it runs now. **Asks first** |
-| `apps_pause` | `app`, `confirm` | Stops the app until it is resumed. Files and settings stay. **Asks first** |
-| `apps_resume` | `app` | Starts a paused or stopped app |
-| `apps_delete` | `app`, `databases` (`keep` or `delete`), `confirm` | Deletes the app, its files and its address. **Asks first** |
-
-## App Store and Docker Hub
-
-| Tool | Arguments | What it does |
-|---|---|---|
-| `store_search` | `query` | Searches the App Store, the apps tested to run on blitz.cloud. Empty lists them all |
-| `store_docker_search` | `query` | Searches public Docker Hub images by name. Official images are marked |
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `apps_access` | `app`, `mode` (optional), `networkIds` (optional), `gateEmails` (optional), `confirm` (optional) | Who can open an app, as Settings, Access shows it: public (anybody with the link), gated (people sign in with blitz.cloud first; gateEmails limits it to those addresses) or private (only on the account's private networks, networkIds from network_list). Without mode it changes nothing and answers how it is now. Closing an app (public to gated, or to private) does not ask. Opening it wider (to public, or out of private) asks first. | deploy | yes |
+| `apps_activity` | `app`, `limit` (optional), `before` (optional) | An app's history as sentences, newest first, as its Activity list shows it: versions, restarts, sleeps and wakes, settings changed, stops and who did them. To page back, pass the answer's nextBefore as before. | read |  |
+| `apps_backup_delete` | `app`, `snapshot`, `confirm` (optional) | Deletes one copy of an app's files from apps_backups for good. The app and its files as they are now stay untouched. Refused while the app's files are being put back. | deploy | yes |
+| `apps_backup_restore` | `app`, `snapshot`, `confirm` (optional) | Puts an app's kept folders back to one of its copies from apps_backups. The app stops for a few minutes, its files are replaced with the copy, and it starts again by itself. Files written since that copy are replaced, but a copy of how they are now is kept for 7 days, so the restore can be undone the same way. The app must be running (not paused). Only the account's owner. | owner | yes |
+| `apps_backups` | `app` | The nightly copies of an app's kept folders (Pro), as Settings, Backups lists them: when each was taken, its size and folders, and copies of how the files were just before a restore (kind pre-restore, kept 7 days). available false means the plan makes no new copies; copies from a time on Pro are still listed. apps_backup_restore and apps_backup_delete take a copy's snapshot value. | read |  |
+| `apps_badge` | `app`, `on` (optional) | The small "Made with blitz.cloud" link on an app's pages. On the free plan it is added by the plan (byPlan true) and cannot be switched off here; on Pro and Business it is off unless switched on. Without on it changes nothing and answers how it is now. | deploy |  |
+| `apps_branches` | `app` (optional), `repo` (optional) | The branches to build from: of an app built from its code (app; current is the branch it follows), or of a GitHub repository before it is deployed (repo; current is its default branch). apps_update branch or apps_deploy_github branch takes one. For a git address outside GitHub, git_branches. | read |  |
+| `apps_change_image` | `app`, `image`, `confirm` (optional) | Points an app that runs a container image at another image or tag, like nginx:1.27 or ghcr.io/owner/name:2.0, as Settings, Source does. The image is looked up on its registry first; the app then restarts with it as a new version (apps_rollback puts the old one back). Address, settings, files and the database stay. Not for App Store apps or apps built from code. | deploy | yes |
+| `apps_check_update` | `app` | Looks for a newer version of an App Store or image app now, instead of waiting for the nightly check. When there is one, the app is updated to it (updating true in the answer) and restarts with it; otherwise updateCheckedAt says it was just looked at. An app built from its own code gets new versions from builds_start instead. | deploy |  |
+| `apps_delete` | `app`, `databases` (optional), `confirm` (optional) | Deletes an app, its files and its address for good. When it has a database, say whether to delete that too. | deploy | yes |
+| `apps_deploy_git` | `url`, `branch` (optional), `address` (optional), `name` (optional), `dockerfile` (optional), `folder` (optional), `connection` (optional), `startCommand` (optional), `env` (optional) | Builds and deploys a project from a git address outside GitHub: GitLab, Gitea, Codeberg or a plain git server (git_check looks first). A private project needs the account's GitLab or Gitea connection (git_connections); with one on the same host the app uses it, and blitz.cloud adds a push hook there so every push builds the app (pushHook says whether that worked). Without a connection, builds_start builds the newest commit. The Dockerfile and port work as with apps_deploy_github. The build takes minutes; follow it with apps_get. | deploy |  |
+| `apps_deploy_github` | `repo`, `branch` (optional), `address` (optional), `name` (optional), `dockerfile` (optional), `folder` (optional), `startCommand` (optional), `env` (optional) | Builds and deploys a GitHub repository. The account must have connected GitHub on the dashboard first. A Dockerfile in the repository is used as it is (dockerfile picks one when there are several); without one blitz.cloud writes the build itself. The port comes from the Dockerfile's EXPOSE (or the compose file's port), and PORT is set to it; apps_update port changes it. Folders the Dockerfile names with VOLUME, or docker-compose.yml mounts as a volume, are kept between restarts from the first build; any other folder with data needs apps_update keepFolder (e.g. /app/data). Settings (environment variables) go in with env_set, or env at create time. The build takes minutes; follow it with apps_get or builds_list. | deploy |  |
+| `apps_deploy_image` | `image`, `tag` (optional), `address` (optional), `name` (optional), `port` (optional), `worker` (optional), `autoUpdate` (optional), `startCommand` (optional), `env` (optional) | Deploys a public container image (Docker Hub or another registry, see store_docker_search) under a sub-address. The app listens on the given port; use worker: true for something that has no web page at all, such as a bot. startCommand and env (NAME=value settings) set how it starts from the first version. | deploy |  |
+| `apps_deploy_site` | `upload`, `address` (optional), `name` (optional), `onMainAddress` (optional) | Step 2 for a new website: checks the uploaded ZIP from apps_site_upload_start and puts it online as a new app under a sub-address. A ZIP that is not a website (no index.html, or code that needs a server) is refused with the reason. | deploy |  |
+| `apps_deploy_store` | `catalogId`, `address` (optional), `name` (optional), `onMainAddress` (optional) | Installs an app from the blitz.cloud App Store (see store_search) under a sub-address such as status.<account>.prod.page. The store entry decides the image, the port, the storage and whether it gets a database. | deploy |  |
+| `apps_diagnose` | `app`, `changes` (optional) | What the build doctor found when an app's build or start failed: what went wrong in plain words and the steps to fix it, each with how to take it (apps_fix_step and its index, or a change to the project's code). Also the recent history of changes to how the app is built and started, with the reason and who made each. A setting's entry never carries its value. | read |  |
+| `apps_dockerfiles` | `app` (optional), `repo` (optional), `branch` (optional), `folder` (optional) | The Dockerfiles in a GitHub repository, each with what its last stage starts with: of an app built from its code (app, on the branch it follows), or of a repository before it is deployed (repo, branch). folder looks only inside that folder. apps_update dockerfile or apps_deploy_github dockerfile takes a path from here. | read |  |
+| `apps_fix_step` | `app`, `step`, `value` (optional), `diagnosis` (optional), `confirm` (optional) | Takes one step of the build doctor's fix, as its button on the app page does: build again, let blitz.cloud write the Dockerfile, use another of the project's Dockerfiles, fill in or save a setting, add a database, put another service online, set the port or the start command, keep a folder. The app builds again or restarts afterwards when the step needs it. ask_setting needs value, the value the person gives; it appears in the chat. A change_code step is only marked done: the person changes the code and pushes. Every step that changes the app asks first. | deploy | yes |
+| `apps_get` | `app` | Everything about one app: address, status and why, what it runs from, settings still to fill in, storage, restarts, the last lines it printed when it crashed. | read |  |
+| `apps_keep_awake_all` | none | Switches every app that still falls asleep when nobody visits to stay awake, as Settings' "Keep all awake" does. Part of a paid plan; refused on the free plan. Nothing is charged. One app is set with apps_update keepAwake. | deploy |  |
+| `apps_keep_files` | `app` | Starts keeping every folder an app has been writing to and losing at each restart (apps_get lists them when it noticed some), as the notice on its page offers. The app restarts once with the folders kept. apps_update keepFolder keeps one named folder instead. | deploy |  |
+| `apps_list` | none | Lists every app on this blitz.cloud account with its address and whether it is online. | read |  |
+| `apps_merge` | `app`, `apps`, `confirm` (optional) | Runs the chosen apps from apps_merge_candidates as parts of the app that stays, in one step: their databases and settings move over, and they are deleted as apps together with their own addresses. | deploy | yes |
+| `apps_merge_candidates` | `app` | Apps of the account built from the same project, branch and Dockerfile as this one, which could run as its parts instead of as apps of their own: which app stays (target) and why, the part each would become, settings with different values (the value of the app that stays is kept), and blocked when merging cannot be done. apps_merge does it. | read |  |
+| `apps_part_start` | `app`, `part` | Starts a part of an app again that blitz.cloud stopped after it kept crashing (apps_get says which). Fix the cause first, or it stops again. | deploy |  |
+| `apps_part_update` | `app`, `part`, `command` (optional), `enabled` (optional), `path` (optional), `port` (optional), `strip` (optional), `confirm` (optional) | Changes one part of an app of several parts: its command (an empty string goes back to the image's own), whether it runs, and for a web part its path, port and whether the path is cut off before the request reaches it. Only the fields given change; the part restarts. Switching a part off (enabled false) stops it. | deploy | yes |
+| `apps_parts_set` | `app`, `parts`, `releaseCommand` (optional), `confirm` (optional) | Replaces the whole list of parts an app runs (an app of several parts, such as a web front end, an API and a worker from one image), as Settings, Parts does; turns a single app into one with parts. Each part: name, kind (web or worker), command (empty for the image's own), port and path for a web part (one web part answers on /), enabled. release is a command that runs before each new version, e.g. a migration. apps_get shows the parts there are now. Parts left out stop. | deploy | yes |
+| `apps_pause` | `app`, `confirm` (optional) | Stops an app until it is resumed. Its address shows a paused page; files and settings stay. | deploy | yes |
+| `apps_resize` | `app`, `memory` (optional), `storageGb` (optional), `confirm` (optional) | Changes how much memory an app gets and, for an app that keeps files, how much of the plan's storage those files may take, as Settings, Advanced does. Without memory or storageGb it changes nothing and answers with the sizes on offer: memoryChoices (fits false means the plan has no room for that one now) and storageChoices in bytes. A new memory size restarts the app; more storage does not. Asks first when the app restarts or its storage share goes down. A size past the plan is refused with the dashboard page where the plan can be changed. | deploy | yes |
+| `apps_restart` | `app`, `confirm` (optional) | Restarts an app with the version it runs now. Visitors see a short gap. | deploy | yes |
+| `apps_resume` | `app` | Starts a paused or stopped app again. | deploy |  |
+| `apps_rollback` | `app`, `version`, `confirm` (optional) | Puts an earlier version of an app back online: the exact image that version ran starts again as a new version, and the app restarts with it. Settings, files and the database stay as they are. Take the version id from apps_versions (only lines with canRestore true). The version is on its way when this answers; apps_get shows when it is online. | deploy | yes |
+| `apps_run` | `app`, `command`, `part` (optional), `confirm` (optional) | Runs one command inside the app's running container with sh -c and returns what it printed and its exit code. For one-off steps such as approving a device or running a migration. No input after it starts; stops listening after 60 seconds; output up to 64 KB; 20 commands a minute. Anyone who may deploy may run commands, organisation developers included, and a command can read everything the app can, its files and settings too. | deploy | yes |
+| `apps_site_update` | `app`, `upload`, `confirm` (optional) | Step 2 for a website that is online already: makes the uploaded ZIP from apps_site_upload_start its new version. The old version stays online until the new one is ready, and apps_rollback can put it back. | deploy | yes |
+| `apps_site_upload_start` | `size`, `fileName` (optional) | Step 1 of putting a static website online (HTML, CSS, pictures; a built site's folder as a ZIP): give the ZIP's exact size in bytes; this returns a link that takes one HTTP PUT of exactly that file, and the curl command for it. Run the curl command on the machine that has the ZIP, then call apps_deploy_site (a new app) or apps_site_update (a new version of one) with the upload value. | deploy |  |
+| `apps_tcp_close` | `app`, `port`, `confirm` (optional) | Closes one of an app's TCP ports; devices connected through it lose the connection, and a port opened later may get another public number. Give the port's id from apps_tcp_ports or the port the app listens on. | deploy | yes |
+| `apps_tcp_open` | `app`, `port`, `confirm` (optional) | Opens a raw TCP port of an app to the internet (Pro, experimental): the port the app listens on inside gets a public port on the TCP address, open to anybody who knows it, with no sign-in in front. Answers with every port and its address. | deploy | yes |
+| `apps_tcp_ports` | `app` | An app's raw TCP ports (Pro, experimental and possibly taken away again), for things that are not web pages, such as MQTT or a game server: each open port with the address a device connects to, and how many the plan still allows (limit -1 is no limit, 0 none). | read |  |
+| `apps_traffic` | `app`, `days` (optional) | What an app served lately, as its Traffic tab shows: requests, data sent and server errors per day, uptime from blitz.cloud's checks, when it slept and woke, and how often and how long visitors waited for it to wake in the last 7 days. | read |  |
+| `apps_update` | `app`, `name` (optional), `address` (optional), `port` (optional), `autoUpdate` (optional), `keepAwake` (optional), `gateErrors` (optional), `keepFolder` (optional), `startCommand` (optional), `dockerfile` (optional), `branch` (optional), `folder` (optional), `worker` (optional), `onMainAddress` (optional), `buildBotPushes` (optional), `confirm` (optional) | Changes an app's settings, as its Settings tab does: name, sub-address or the main address, port, nightly updates, whether it stays awake, whether blitz.cloud's page replaces its own error answers, the start command, and for an app built from its own code the Dockerfile, branch, folder and whether bot pushes build it (each of those four builds it again). worker: true makes it a background worker without an address. keepFolder keeps one more folder between restarts (the app restarts with it). Only the fields given change. A new address, the main address or worker: true asks first, since the old address stops working at once. | deploy | yes |
+| `apps_versions` | `app`, `limit` (optional) | Every version of an app that was started, newest first, as the app page's History tab lists them: what started it (a push, a nightly update, a version put back), whether it went online, and whether it can be put back (canRestore, with the reason when not). apps_rollback takes the id of one of these. | read |  |
+| `apps_wake` | `app` | Wakes an app that went to sleep for lack of visitors (apps on the free plan sleep after a while), without waiting for a visitor to. An app that is awake stays as it is. A paused app is not asleep: apps_resume starts that one. | deploy |  |
 
 ## Builds
 
-| Tool | Arguments | What it does |
-|---|---|---|
-| `builds_start` | `app` | Builds the newest commit on the app's branch and deploys it if the build works |
-| `builds_list` | `app`, `limit` | The app's builds, newest first, with the reason a build failed |
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `builds_cancel` | `app`, `build` (optional) | Stops a build that is waiting or running. The version online stays online and nothing it stores is touched; the new version just does not arrive, and builds_start builds it again. A build that has finished, and with it a version already starting, cannot be stopped. Without a build id, the newest build that has not finished. | deploy |  |
+| `builds_get` | `app`, `build` (optional), `logOffset` (optional), `logLimit` (optional) | One build of an app built from its code, as the Deployments tab shows it: its state and phases, why it failed, the Dockerfile it was built with (the one blitz.cloud wrote, or the project's own path), and its log. The log comes in pages: without logOffset the last 20,000 characters, at most 64,000 per call; the answer says which logOffset reads the part before or after. Also says what the version online now was built with and starts with. Without a build id, the newest build. builds_list has the ids; apps_diagnose has the build doctor's steps to fix a failure. | read |  |
+| `builds_list` | `app`, `limit` (optional) | The builds of an app built from GitHub, newest first, with why a build failed. | read |  |
+| `builds_start` | `app` | Builds an app from its GitHub repository again, with the newest commit on its branch, and deploys it when the build works. | deploy |  |
+
+## GitHub
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `github_app_builds` | `app` | Whether an app from GitHub builds on the account's own GitHub Actions or on blitz.cloud's build servers, whether GitHub lets blitz.cloud commit its build files there, and what went wrong last time, if anything. Switching it is done on the app's Settings tab. | read |  |
+| `github_connect` | none | The link that connects the account's GitHub, so private repositories can be deployed and a push redeploys the app. The person opens it in their browser, signs in if asked, picks the repositories on GitHub and lands on a page that says to come back to the chat. Then call github_status to see what is connected. This tool changes nothing itself. | deploy |  |
+| `github_disconnect` | `account`, `confirm` (optional) | Disconnects one GitHub account from blitz.cloud and removes the blitz.cloud App from it on GitHub. Refused while apps are built from it. | deploy | yes |
+| `github_published_image` | `repo`, `branch` (optional) | Whether a GitHub project already publishes a container image for a branch (for example on ghcr.io) that runs here, with its tag, port and whether it was built from the branch's last commit. If it does, apps_deploy_image can run that image instead of building the project. armOnly means the image exists but only for ARM processors, so the project has to be built. | read |  |
+| `github_status` | `search` (optional), `repo` (optional) | Whether the account has GitHub connected, which GitHub accounts, and the repositories blitz.cloud can deploy from them. A search narrows the list. With repo, checks that one repository (a github.com link or owner/name): whether it can be deployed and whether a push redeploys it. Public repositories deploy without a connection; private ones need it. | read |  |
+
+## GitLab, Gitea and other git hosts
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `git_branches` | `url`, `connection` (optional) | The branches of a git address outside GitHub. For a private project on a connected GitLab or Gitea, give connection (from git_connections) and the project's clone address from git_projects. For an app that exists, apps_branches. | read |  |
+| `git_check` | `url` | Checks a git address outside GitHub (GitLab, Gitea, Codeberg, a plain git server) before apps_deploy_git: whether it can be read, its default branch and newest commit, and store when the App Store already runs the same project without a build (then apps_deploy_store is the easier way). | read |  |
+| `git_connection_remove` | `connection`, `confirm` (optional) | Disconnects a GitLab or Gitea account from blitz.cloud. The push hooks it set up are removed, so pushes stop building its apps, and private projects on it can no longer be built. The apps keep running the version they have. | deploy | yes |
+| `git_connections` | none | The GitLab and Gitea accounts connected to this blitz.cloud account (connecting one takes an access token or a sign-in, which happens in the dashboard). reconnect true means its sign-in ran out: builds of its private projects stop until it is connected again in the dashboard. Never shows a token. | read |  |
+| `git_dockerfile` | `url`, `branch` | Whether a branch of a git address outside GitHub has a Dockerfile at the top of the project: found, missing (blitz.cloud writes the build itself) or unknown (the host did not say). | read |  |
+| `git_projects` | `connection` | The projects a connected GitLab or Gitea account can see, with each one's clone address and default branch, to pick one for apps_deploy_git. | read |  |
+
+## Logs
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `logs_tail` | `app`, `lines` (optional), `previous` (optional), `part` (optional) | The last lines an app printed. previous: true shows what it printed before its last restart, which is where a crash explains itself. | read |  |
+
+## Settings (environment variables)
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `env_delete` | `app`, `name`, `confirm` (optional) | Removes one setting of an app; the app restarts without it. | deploy | yes |
+| `env_get` | `app`, `name` | One setting of an app with its value in the clear, as the dashboard's reveal button shows it. Settings like DATABASE_URL carry a password, and the value then stays in this chat and its history, so only ask for one the task needs. secret: true marks a value that looks like a password, key or token. | deploy |  |
+| `env_list` | `app` | An app's settings (environment variables), values hidden. env_get shows one value. | read |  |
+| `env_set` | `app`, `name`, `value` | Adds or changes one setting of an app. The app restarts to pick it up. | deploy |  |
 
 ## Databases
 
-| Tool | Arguments | What it does |
-|---|---|---|
-| `dbs_list` | none | Databases with their state and last nightly backup |
-| `dbs_create` | `engine` (`postgresql`, `mariadb` or `redis`), `name` | Creates a managed database, backed up every night |
-| `dbs_connect` | `database`, `app` | Fills in `DATABASE_URL` and the other settings the app needs, then restarts it |
-| `dbs_restart` | `database`, `confirm` | Restarts the database. **Asks first** |
-| `dbs_delete` | `database`, `confirm` | Deletes the database and its backups. **Asks first** |
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `dbs_backups` | `database` | The copies a database can be put back to with dbs_restore: one per night, and the copy taken just before a restore (kind pre-restore), which undoes that restore. Only names, times and sizes, no data from inside the database. | read |  |
+| `dbs_connect` | `database`, `app` | Gives an app a database: fills in DATABASE_URL and the other settings it needs, and restarts the app. | deploy |  |
+| `dbs_create` | `engine`, `name` (optional) | Creates a managed database, backed up every night. Connect it to an app with dbs_connect. | deploy |  |
+| `dbs_delete` | `database`, `confirm` (optional) | Deletes a database and its nightly backups for good. | deploy | yes |
+| `dbs_disconnect` | `database`, `app`, `confirm` (optional) | Disconnects an app from a database: the settings the connection filled in (DATABASE_URL and the others) are removed and the app restarts without them, so it can no longer reach that database. The database and its data stay. | deploy | yes |
+| `dbs_export` | `database`, `fresh` (optional) | Makes a copy of a PostgreSQL or MariaDB database to download, as the dashboard's Download button does, and hands back a link with a curl command. Nothing from inside the database comes into this chat. The first call starts the copy and says working; call again after a minute until it says done with the link. The link works for 15 minutes; the copy is kept for 24 hours, and calling again in that time gives a new link. fresh: true makes a new copy instead. At most 10 copies a day per database. | deploy |  |
+| `dbs_import_cancel` | `database`, `upload` | Stops an import upload that has not been finished, so nothing is imported and another upload can start. An import that is already running can't be stopped here; it ends on its own. | deploy |  |
+| `dbs_import_finish` | `database`, `upload` | Step 2: once the curl command from dbs_import_start ran, this checks the whole file arrived and starts the import. The import runs on its own and takes a few minutes; call again with the same upload to see how it went (working, done with the tables imported, or failed with why). An import only goes into a database with no tables, and one that fails keeps nothing, so the database stays as empty as before. The file is deleted once the import is done. | deploy |  |
+| `dbs_import_start` | `database`, `fileName`, `size` | Step 1 of loading a dump into an empty PostgreSQL or MariaDB database (PostgreSQL: pg_dump custom format, tar, plain SQL or .sql.gz; MariaDB: a mysqldump or mariadb-dump .sql or .sql.gz): give the file's name and exact size in bytes. This returns a link that takes one HTTP PUT of exactly that many bytes, valid for 3 hours, and the curl command for it. Run it on the machine that has the file, then call dbs_import_finish with the upload value. The file never passes through this chat. Refused when the database already has tables, is asleep or busy, the file is too big for it, or another upload of the account is still open. At most 10 imports a day. | deploy |  |
+| `dbs_keys` | `database`, `pattern` (optional), `cursor` (optional), `key` (optional) | The keys of a Redis/Valkey database, 100 at a time, matching an optional pattern such as session:*. Give key instead to read that one key's type and value; the value goes into this chat, so long values and big lists, sets and hashes are cut (truncated says so). Read-only. | deploy |  |
+| `dbs_link_rename` | `database`, `app`, `prefix`, `confirm` (optional) | Renames the settings an app gets from a database by their prefix, e.g. DATABASE_URL becomes ANALYTICS_DB_URL with prefix ANALYTICS_DB, for an app that reads another name or uses two databases. The app restarts with the new names; code that reads the old names stops finding them. | deploy | yes |
+| `dbs_list` | none | The account's databases with their state and last nightly backup. | read |  |
+| `dbs_query` | `database`, `sql` | Runs one read-only SQL query (a single SELECT or WITH ... SELECT) on a PostgreSQL or MariaDB database, in a read-only session that stops after 10 seconds. Anything that writes or changes the database is refused before it runs, and the session could not write anyway. At most 10 queries a minute per account, shared with the dashboard; each one is written to the account's activity log. The rows go into this chat, so at most 50 rows come back, values cut at 500 characters; use LIMIT and pick the columns you need. | deploy |  |
+| `dbs_restart` | `database`, `confirm` (optional) | Restarts a database. Apps using it lose their connection for a moment. | deploy | yes |
+| `dbs_restore` | `database`, `snapshot`, `confirm` (optional) | Puts a database back to one of its copies from dbs_backups. Everything in the database now is replaced by that copy, so whatever was written after the copy was taken is gone from the database. A copy of how it is right now is taken first (dbs_backups lists it as pre-restore), and restoring that one undoes this. Apps using the database see errors until it finishes; dbs_list shows the state. PostgreSQL and MariaDB only. | deploy | yes |
+| `dbs_rotate_password` | `database`, `confirm` (optional) | Gives a database a new password, for when its connection string got out. The old password stops working, and the database and the apps using it restart with the new one filled in. The new password is not shown here. | deploy | yes |
+| `dbs_rows` | `database`, `table`, `page` (optional), `sortColumn` (optional), `sortDir` (optional), `filterColumn` (optional), `filterValue` (optional) | One page of a table's rows in a PostgreSQL or MariaDB database, optionally sorted by a column or filtered to rows whose column contains a value. Read-only. The rows go into this chat, so the answer is kept small: at most 50 rows, values cut at 500 characters, about 20000 characters in all; cut says when something was left out. Use page for the next page. | deploy |  |
+| `dbs_tables` | `database` | The tables of a PostgreSQL or MariaDB database with an estimate of their rows and their size, up to 200. Read-only. A database that sleeps is not woken; dbs_restart starts it. | deploy |  |
 
-Passwords are never returned. Connecting a database hands them to the app directly.
+## Domains and DNS
 
-## Environment variables
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `domains_addresses_list` | none | Every address the account serves under its blitz.cloud address, one per app, which one is the main address, the app's status, and whether the certificate that covers them is live yet (secure). | read |  |
+| `domains_bought_connect` | `domain`, `name`, `app` (optional), `confirm` (optional) | Shows an app on a name of a bought domain: the domain itself (@), www, or one more name in front of it like shop. The name gets the DNS record it needs. Leave the app out to stop showing one there. Moving a name away from the app it shows, or disconnecting it, asks first; requires confirm: true then. | manage domains | yes |
+| `domains_bought_dns_add` | `domain`, `type`, `name`, `content`, `priority` (optional), `ttl` (optional), `proxied` (optional) | Adds a DNS record to a bought domain's zone, e.g. MX and TXT records for a mail provider. A record that would take a name away from the app it shows is refused with the reason. | manage domains |  |
+| `domains_bought_dns_change` | `domain`, `record`, `type`, `name`, `content`, `priority` (optional), `ttl` (optional), `proxied` (optional) | Changes a DNS record in a bought domain's zone. Every field is written as given, so pass the ones that stay too; domains_bought_get shows them. | manage domains |  |
+| `domains_bought_dns_delete` | `domain`, `record`, `confirm` (optional) | Removes a DNS record from a bought domain's zone. | manage domains | yes |
+| `domains_bought_get` | `domain` | One domain bought through blitz.cloud: its state, contract, nameservers, the names that show an app and the DNS records of its zone. For an order still waiting for its payment, where the order stands. Says what is left to do, such as the owner's details the person enters on the domain's page. | read |  |
+| `domains_bought_list` | none | The domains the account bought through blitz.cloud: where each stands (paid, registering, active, won't renew), when it renews and at what price, how many names show an app, and its page in the dashboard. Domains bought elsewhere are in domains_own_list. | read |  |
+| `domains_bought_renewal_resume` | `domain` | Takes back a stopped renewal of a bought domain, so it renews every year again at its yearly price. Nothing is charged now; the next year is charged to the saved card on the renewal day, as before it was stopped. Not possible once the registry has the cancellation. blitz.cloud asks the person directly first; a client that cannot show the server's question gets the domain's page instead. Only the account's owner (billing and domains together) can; other roles get the page. | read | the person only |
+| `domains_bought_renewal_stop` | `domain` | Stops a bought domain's yearly renewal: it stays the account's until the time paid for ends, then it is given up and anyone can register it. blitz.cloud asks the person directly first, past the assistant; a client that cannot show the server's question gets the domain's dashboard page instead, and there is no way to stop it without that question. Only the account's owner (billing and domains together) can; other roles get the page. | read | the person only |
+| `domains_bought_reset` | `domain`, `everything` (optional), `confirm` (optional) | Writes the records that send a bought domain, www and every connected name to blitz.cloud again, replacing whatever A, AAAA or CNAME record took their place. With everything: true every other record goes too, mail records included, and the zone is as on the first day. | manage domains | yes |
+| `domains_buy_link` | `domain`, `app` (optional) | The link to buy a domain through blitz.cloud. The person opens it in their browser: the Domains page looks the name up, shows the price, and the person pays and enters the domain owner's details there. Nothing is ordered or charged by this tool, and the owner's details are never asked for in the chat. With an app, the order is set to show that app on the domain. Check the name with domains_buy_search first. | manage domains |  |
+| `domains_buy_search` | `name` (optional) | Whether a domain can be bought through blitz.cloud and what it costs a year, with the same name under the other endings sold here (.de, .com and more). Asks the registries live, so a search takes a few seconds and at most a few searches a minute are allowed. Without a name it suggests free names made from the account's apps. Each name that can be bought comes with buyLink, the page where the person buys it; nothing is ordered here. | read |  |
+| `domains_dns_add` | `type`, `name`, `value`, `ttl` (optional) | Adds a DNS record under the account's address, e.g. a TXT record to prove ownership to a mail provider. Records that would clash with an app's address are refused. | manage domains |  |
+| `domains_dns_delete` | `record`, `confirm` (optional) | Removes a DNS record that was added by hand. | manage domains | yes |
+| `domains_list` | none | The account's main address and its DNS records: the ones blitz.cloud keeps for the apps (read-only) and the ones added by hand. | read |  |
+| `domains_own_add` | `domain`, `app` (optional) | Adds a domain you own, with the DNS records to add at your provider. Pick an app now or connect it later with domains_own_connect. | manage domains |  |
+| `domains_own_check` | `domain` | Checks a domain you own against the public DNS now, rather than waiting for the next scheduled check, and records what it found (verified, connected or what is still missing), as the dashboard's check button does. | manage domains |  |
+| `domains_own_connect` | `domain`, `app` (optional), `confirm` (optional) | Connects a domain you own to an app, moves it to another, or leaves it blank app for the app to disconnect it, keeping it verified on your account. Moving or disconnecting a domain that shows an app asks first, since that app stops answering on it; connecting a domain that shows nothing yet does not ask. | manage domains | yes |
+| `domains_own_list` | none | The domains you own: where each one stands, and which app it shows, if any. | read |  |
+| `domains_own_primary` | `domain`, `primary` (optional), `confirm` (optional) | Makes a connected domain you own the app's main address, or stops with primary false. Its blitz.cloud address then sends visitors to the domain, and the app's own address setting names it, so the links the app writes do too. The domain needs its certificate first. The app restarts to read the change, so it asks first. | manage domains | yes |
+| `domains_own_redirect` | `domain`, `to` | Sends visitors of example.com on to www.example.com (to: www), or the other way round (to: apex), keeping the path, or stops (to: off). Adds the other name to the account and the same app when it is not there yet; a name bought elsewhere then needs its DNS records, which domains_own_list shows. | manage domains |  |
+| `domains_own_remove` | `domain`, `confirm` (optional) | Removes a domain you own. | manage domains | yes |
 
-| Tool | Arguments | What it does |
-|---|---|---|
-| `env_list` | `app` | The app's settings, values hidden |
-| `env_get` | `app`, `name` | One setting with its value |
-| `env_set` | `app`, `name`, `value` | Adds or changes a setting. The app restarts to pick it up |
-| `env_delete` | `app`, `name`, `confirm` | Removes a setting. **Asks first** |
+## Files
 
-## Addresses and DNS
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `files_delete` | `app`, `path`, `step` (optional), `confirm` (optional) | Deletes a file or a folder with everything in it from an app's kept folders, for good: there is no bin, only a file backup from before (Pro) brings it back. When the answer says working, call again with the step value (a call that only reports asks nothing). Only the account's owner. | owner | yes |
+| `files_download` | `app`, `path` (optional), `download` (optional) | Packs one of the app's kept folders (or a file or folder inside it) into a .tar.gz and returns a link to download it with curl, valid for an hour. Works whether the app is awake or asleep. Small folders are ready in the same call; otherwise the answer says working and gives a download value: call again with it until it says done. Only the account's owner can use the file tools. | owner |  |
+| `files_list` | `app` (optional), `path` (optional), `step` (optional) | Without app: the apps that keep folders, with their folders and storage. With app: what is in one of its kept folders (path, the first kept folder when left out), a few levels deep, as names, types, sizes and change times; no file contents. At most 200 entries come back (truncated says when there were more); list a subfolder to see further. Works whether the app is awake or asleep. When the answer says working, call again with the step value. Only the account's owner can use the file tools. | owner |  |
+| `files_mkdir` | `app`, `path`, `step` (optional) | Makes a folder inside one of an app's kept folders, running as the app's user, as the dashboard's file view does. Works whether the app is awake or asleep. When the answer says working, call again with the step value. Only the account's owner can use the file tools. | owner |  |
+| `files_move` | `app`, `from`, `to`, `step` (optional), `confirm` (optional) | Moves or renames a file or folder inside an app's kept folders. The app sees the change at once; anything it reads at the old path stops finding it. When the answer says working, call again with the step value (a call that only reports asks nothing). Only the account's owner. | owner | yes |
+| `files_read` | `app`, `path`, `offset` (optional), `step` (optional) | Reads a text file from one of an app's kept folders, such as a config file or a log. The text goes into this chat, so one answer carries at most 20000 characters from offset; nextOffset says where the next part starts. Files over 1 MB and files that are not text are refused here; files_download hands those over as a link instead. A file can hold passwords or keys, and whatever is read here is in the chat. When the answer says working, call again with the step value. Only the account's owner can use the file tools. | owner |  |
+| `files_search` | `app`, `query`, `path` (optional), `step` (optional) | Finds files and folders whose name contains a text, inside one of an app's kept folders and everything below it. Names, types, sizes and change times only, at most 200 of them. When the answer says working, call again with the step value. Only the account's owner can use the file tools. | owner |  |
+| `files_upload_finish` | `app`, `upload`, `path` (optional), `extract` (optional), `confirm` (optional) | Step 2: puts the uploaded file into the app's kept folder, running as the app's user. With extract: false it is written as one file at path (e.g. /app/data/backup.zip), replacing a file of that name. With extract: true a .zip, .tar or .tar.gz is unpacked into the folder at path (e.g. /app/data); files with the same names are replaced. The path must be inside one of the app's kept folders and fit its storage. Small files finish in the same call; for big ones the answer says working, so call again with the same upload until it says done or failed (a call that only reports asks nothing). The app sees the files at once; restart it if it reads them only at start. Only the account's owner. | owner | yes |
+| `files_upload_start` | `app`, `fileName`, `size` | Step 1 of putting a file from the person's machine into an app's kept folder (a backup, a database file, uploads): give the file's exact size in bytes; this returns a link that takes one HTTP PUT of exactly that many bytes, up to 4 GB, valid for 2 hours, and the curl command for it (refused above the limit or the app's free storage, and while an earlier upload for this app or account is still open). Run the curl command on the machine that has the file, then call files_upload_finish with the upload value and the target path. Works whether the app is awake or asleep. The app must keep the folder (apps_get shows volumes; apps_update keepFolder adds one). Only the account's owner can use the file tools. | owner |  |
 
-| Tool | Arguments | What it does |
-|---|---|---|
-| `domains_list` | none | Your main address and its DNS records: the ones blitz.cloud keeps for your apps, read-only, and the ones you added |
-| `domains_dns_add` | `type` (`A`, `AAAA`, `CNAME`, `TXT`, `MX`), `name`, `value`, `ttl` | Adds a record under your address. Records that would clash with an app's address are refused |
-| `domains_dns_delete` | `record`, `confirm` | Removes a record you added. **Asks first** |
+## Private networks
 
-## Private network
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `network_connect_hosted` | none | Starts a WireGuard server that blitz.cloud runs for the account, for people without a router or server of their own. Nothing needs uploading. Its devices (a phone, a laptop, a router at home) are added on the dashboard's Private network page, because each device's config holds a private key that is shown once and never belongs in a chat. | deploy |  |
+| `network_connect_tailscale` | `name` (optional) | Connects the account to the person's Tailscale network. blitz.cloud adds one device to their tailnet; the person opens the sign-in link (loginUrl) in their browser and signs in to Tailscale, and private apps then open on every device of that tailnet. No key or password goes through the chat. The link usually arrives within a few seconds; when loginUrl is still empty, call network_list again shortly. | deploy |  |
+| `network_device_add` | `network` (optional), `address`, `name` | Adds a device that a scan did not find by its address, like 192.168.178.20, with a name. The address has to be on a home network the private network reaches. The device is pinned, so it stays on the map while it is offline. | deploy |  |
+| `network_device_forget` | `device`, `confirm` (optional) | Takes a device off the account's map, together with its forwards (apps stop reaching it under their name) and the addresses that publish it. A scan can find it again. | deploy | yes |
+| `network_device_update` | `device`, `name` (optional), `pinned` (optional) | Renames a device on a private network, or pins it so it stays on the map while it is offline (unpinned, a device nobody saw for a while drops off). An empty name lets the next scan name it again. | deploy |  |
+| `network_devices_check` | `network` (optional) | Asks the private network which of its devices answer right now, and lists every device with its fresh status. At most once in 30 seconds per network; sooner, the devices come back as they were with checked false and when to ask again. | deploy |  |
+| `network_disconnect` | `network` (optional), `then` (optional), `confirm` (optional) | Disconnects a private network. Private apps that are on this network alone would be reachable from nowhere, so then says what happens to them: public (back on their public address, anybody with the link can open them) or pause. Called without then while such apps exist, it names them and changes nothing. Always asks first. | deploy | yes |
+| `network_hosted_device_remove` | `device`, `confirm` (optional) | Removes a device from the hosted WireGuard server: its config stops working and it can no longer open private apps. When it is the last device, private apps on that network are reachable from nowhere until another device is added; the question names them. | deploy | yes |
+| `network_hosted_device_routes` | `device`, `routes`, `confirm` (optional) | Says which home networks sit behind a device of the hosted WireGuard server, like 192.168.178.0/24 behind a router or a Raspberry Pi at home, so apps can reach devices there. The answer has the setup to paste on that device so it passes them on. One device per home network. Taking a network away asks first, since apps stop reaching the devices on it; adding one does not. | deploy | yes |
+| `network_list` | none | The private networks (Tailscale, WireGuard) the account has connected, with the Tailscale sign-in link while nobody has signed in and the devices of the hosted WireGuard server, and which apps are private. apps_access says who can open one app. | read |  |
+| `network_rename` | `network` (optional), `name` | Gives the account's Tailscale device a new name, as the person sees it among their tailnet's devices. The apps' own addresses stay the same. A name the person set by hand in Tailscale wins over this one. | deploy |  |
+| `network_scan` | `network` (optional), `range` (optional) | Scans one home network behind a private network for devices (a printer, a NAS, a Hue bridge) and adds what it finds to the account's map. One range of at most 256 addresses that the network reaches, like 192.168.178.0/24; takes up to a minute. Six scans an hour, one at a time per network. | deploy |  |
+| `network_set_private` | `app`, `isPrivate`, `confirm` (optional) | Takes an app off the internet and onto the account's private networks, or puts it back on its public address. Needs a connected network. Making a private app public again asks first, since anybody with the link can then open it; making it private does not ask. | deploy | yes |
 
-| Tool | Arguments | What it does |
-|---|---|---|
-| `network_list` | none | The Tailscale and WireGuard networks you connected, and which apps are private |
-| `network_set_private` | `app`, `isPrivate` | Takes an app off the internet and onto your private networks, or back |
+## Designer
 
-Connecting a network is done in the dashboard, because it needs a secret or a config file.
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `designer_forward` | `device`, `name`, `ports`, `apps` | Lets apps reach a device on a private network (a Hue bridge, a printer) by a name of its own, like hue-bridge: the apps dial <name>:<port>. Give the device's id or address from designer_read, the ports, and the apps. | deploy |  |
+| `designer_forward_remove` | `forward`, `confirm` (optional) | Removes a device forward: the apps that used it stop reaching the device under its name. The device itself stays on the map. | deploy | yes |
+| `designer_forward_update` | `forward`, `name` (optional), `ports` (optional), `apps` (optional), `confirm` (optional) | Changes a device forward made with designer_forward: its name, its ports or the apps that may use it. What is left out stays as it is. Taking ports or apps away asks first, since those apps stop reaching the device that way; adding does not. | deploy | yes |
+| `designer_link` | `app`, `target`, `alias` (optional), `part` (optional), `remove` (optional), `confirm` (optional) | Links one app to another in the account: the app gets <ALIAS>_URL and <ALIAS>_HOST pointing at the other inside the account, and the other stays awake while the app is. Or removes a link with remove: true, which asks first, since the app loses those settings at its next restart and stops reaching the other. Adding a link does not ask. | deploy | yes |
+| `designer_read` | none | Everything the account runs as a map: apps, databases, domains, private networks and the devices on them, and how they are connected (links, databases, forwards, domains). | read |  |
+| `designer_site_add` | `device`, `port`, `host` (optional), `domain` (optional), `visibility` (optional), `tls` (optional), `gate` (optional), `emails` (optional), `confirm` (optional) | Publishes the web page of a device at home (a NAS, Home Assistant, a camera) under an address of the account: a name under the account's address, like nas, or a domain the account connected. private: it opens only on the account's private networks. public: it opens from the internet, behind a blitz.cloud sign-in with the emails let in unless gate is false. Public asks first, since anybody let in, or anybody at all without the gate, can then reach the device. | deploy | yes |
+| `designer_site_remove` | `site`, `confirm` (optional) | Takes a device's address away: the device's page no longer opens there. The device stays on the map. | deploy | yes |
+| `designer_site_update` | `site`, `port` (optional), `visibility` (optional), `tls` (optional), `gate` (optional), `emails` (optional), `confirm` (optional) | Changes a device's address made with designer_site_add: port, https, private or public, the sign-in gate and the emails let in. What is left out stays. Making it public or taking the gate off a public one asks first. | deploy | yes |
 
-## Logs and usage
+## Projects
 
-| Tool | Arguments | What it does |
-|---|---|---|
-| `logs_tail` | `app`, `lines` (up to 500), `previous`, `part` | The last lines the app printed. `previous: true` shows what it printed before its last restart, which is usually where a crash explains itself |
-| `usage_get` | none | Your plan and how much of apps, databases, memory and storage is used |
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `projects_create` | `name`, `color` (optional) | Creates a project to group apps, databases and domains, like one per client or topic. It changes nothing about how they run. | deploy |  |
+| `projects_list` | none | The account's projects (groups of apps, databases and domains on the designer) with their members and how many are fine, need a look or failed. | read |  |
+| `projects_members` | `project`, `addApps` (optional), `addDatabases` (optional), `addDomains` (optional), `remove` (optional), `delete` (optional), `confirm` (optional) | Puts apps, databases and domains into a project (out of any other) or takes them out. Or deletes the project with delete: true, which asks first; its members keep running, in no project. Changing members does not ask. | deploy | yes |
+| `projects_update` | `project`, `name` (optional), `color` (optional) | Renames a project or gives it another colour. It changes nothing about how its apps, databases and domains run. | deploy |  |
+
+## App Store
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `store_docker_search` | `query` | Searches public images on Docker Hub by name. Official images are marked. These are not checked by us, unlike the App Store. Deploy one with apps_deploy_image. | read |  |
+| `store_get` | `id` | One App Store entry in full, as its store page shows it: what it needs (a database, kept files, a private network), what it cannot do here, its memory and storage, the plan it needs, the first steps after installing, how long an install usually takes, and its website, source and licence. The id comes from store_search. Install it with apps_deploy_store. | read |  |
+| `store_image_inspect` | `image`, `tag` (optional) | What a public container image needs to run here, as the deploy wizard works it out: the port it listens on, whether it needs a database and which, the settings it reads, the folders to keep between restarts, and whether an App Store entry runs the same image already (then apps_deploy_store is the easier way). advised says when part of it was worked out rather than declared by the image. | read |  |
+| `store_image_tags` | `image` | The tags (versions) of a public Docker Hub image, newest first, and the one the deploy wizard would pick: the moving tag such as latest, which is what keeps an app updated. Deploy with apps_deploy_image. | read |  |
+| `store_search` | `query` (optional) | Searches the blitz.cloud App Store: apps we have tested and set up to run here. Empty query lists them all. Install one with apps_deploy_store. | read |  |
+
+## Plan and usage
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `usage_get` | none | The account's plan and how much of it is used: apps, databases, memory and storage. | read |  |
+
+## Billing
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `billing_cancel` | none | Cancels the account's paid plan at the end of the period paid for. blitz.cloud asks the person directly first, past the assistant; a client that cannot show the server's question gets the dashboard page where the person cancels themselves, and there is no way to cancel without that question. Only an owner or a member with the billing role can cancel; other roles get the page. | read | the person only |
+| `billing_cancel_undo` | none | Takes back a cancellation of the account's paid plan, so it renews as before. Nothing is charged now; the next period is charged on the renewal day. blitz.cloud asks the person directly first, past the assistant; a client that cannot show the server's question gets the dashboard page instead. Only an owner or a member with the billing role can; other roles get the page. | read | the person only |
+| `billing_get` | none | What the account pays: its plan, the price and how often it is charged, the next renewal or the day a cancelled plan ends, whether the last payment failed, a running trial and the Pro apps with their status. Only an owner or a member with the billing role sees prices and dates; other roles see whether a payment failed. Changing any of it happens on the page in manage. | read |  |
+| `billing_invoices_list` | none | The account's last invoices with their number, date, amount and status, and links to each invoice's page and PDF on Stripe. For an owner or a member with the billing role. | manage billing |  |
+| `billing_portal_link` | none | A link to Stripe's page for the account's billing: the card, the billing address, all invoices. The person opens it in their browser; nothing changes here. For an owner or a member with the billing role, once the account has paid for something. | manage billing |  |
+| `billing_pro_app_assign` | `app`, `slot` (optional), `confirm` (optional) | Makes an app a Pro app with a Pro place that is paid and holds no app (one whose app was deleted, say): billing_get lists the places. Nothing is charged, the place is paid already. The app gets the place's memory and stays awake, and it must fit the place's size. Only an owner or a member with the billing role; an organisation's API key can't. | manage billing | yes |
+| `billing_pro_app_cancel` | `app` | Stops one Pro app: nothing more is charged for it, and it stays a Pro app until the time paid for ends. blitz.cloud asks the person directly first, past the assistant; a client that cannot show the server's question gets the app's dashboard page instead, and there is no way to stop it without that question. Only an owner or a member with the billing role can stop it; other roles get the page. | read | the person only |
+| `billing_pro_app_cancel_undo` | `app` | Takes back the stop of a Pro app, so it renews as before. Nothing is charged now; it is charged with the next renewal. Not possible once its paid time is over. blitz.cloud asks the person directly first, past the assistant; a client that cannot show the server's question gets the app's dashboard page instead. Only an owner or a member with the billing role can; other roles get the page. | read | the person only |
+
+## Plans and prices
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `plans_list` | none | The plans on sale with their prices (in cents, VAT included) and limits, the plans for organisations, and the add-ons such as a Pro app. The same list as the pricing page on blitz.cloud. | read |  |
+
+## Payment links
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `checkout_business` | `interval` (optional) | A link to Stripe's payment page for the organisation's Business plan. Nothing is charged here: the person opens the link, ticks the box that the plan may start at once and pays on that page; checkout_status says afterwards whether it went through. Paying by invoice is ordered on the organisation's billing page instead. An organisation whose plan runs already gets that page. | manage billing |  |
+| `checkout_plan` | `plan` (optional), `interval` (optional) | A link to Stripe's payment page for a plan (Pro when no plan is named; plans_list shows the others). Nothing is charged here: the person opens the link, ticks the box that the plan may start at once and pays on that page. Then checkout_status says whether it went through. An account that pays for a plan already gets the dashboard page instead, because switching charges the saved card. | manage billing |  |
+| `checkout_pro_app` | `app`, `interval` (optional), `size` (optional) | A link to Stripe's payment page that makes one app a Pro app (more memory, kept awake, its own domain). Nothing is charged here: the person opens the link, ticks the box and pays on that page; checkout_status says afterwards whether it went through. When the account has a card on file for its Pro apps already, a further one would be charged to it at once, so the answer is the app's dashboard page, where the person confirms the amount. | manage billing |  |
+| `checkout_status` | `checkout` | Whether the person paid on a payment page from checkout_plan or checkout_pro_app: open while it is not paid yet, complete when it went through, expired when the page timed out. Ask again after the person says they paid. | read |  |
+
+## AI allowance
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `ai_credits_get` | none | This month's allowance for blitz.cloud's own AI help (writing a Dockerfile, explaining a failed build): how much there is, how much is used and when it starts again. active is false while that help is switched off. | read |  |
+
+## Accounts
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `accounts_list` | none | Every account the person can act for: their own and each organisation they are a member of, with their role there, what the role allows and whether the organisation's plan is active. current marks the one this connection acts for; note says how to act for another one. account_status says what the current one still needs. | read |  |
+
+## Organisations
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `orgs_billing_get` | none | What the organisation pays: whether its Business plan runs or waits for payment, the price per month or year (in cents), the next renewal, the seats included, used and paid, and the state of a non-profit discount request. For an owner or a member with the billing role. Changing seats, asking for a discount and paying by invoice happen on the page in manage; checkout_business gives the payment link. | manage billing |  |
+| `orgs_billing_invoices_list` | none | The organisation's last invoices with their number, date, amount (in cents) and status, and links to each invoice's page and PDF on Stripe. For an owner or a member with the billing role. | manage billing |  |
+| `orgs_invitation_resend` | `invitation` | Mails an open invitation again with a new link, valid for another week, for someone who lost the first mail or let it run out. At most once every few minutes per invitation. Only owners and admins; an organisation's API key can't. | manage members |  |
+| `orgs_invitation_revoke` | `invitation`, `confirm` (optional) | Takes back an open invitation: its link stops working and its seat is free again. A person who already joined is a member, not an invitation, and stays. Only owners and admins; an organisation's API key can't. | manage members | yes |
+| `orgs_invitations_list` | none | The organisation's open invitations: who was invited, with which role, by whom, and when the link runs out (status open or expired). An open invitation takes a seat until it is accepted or revoked. | read |  |
+| `orgs_invite` | `emails`, `role`, `confirm` (optional) | Invites people to the organisation by email. Each gets a mail with a link to join in the given role, valid for a week, and accepts it in their browser. Each open invitation takes a seat. Addresses that are already members or invited are skipped and listed with the reason. Only owners and admins, and only an owner can invite another owner. An organisation's API key can't invite. | manage members | yes |
+| `orgs_member_remove` | `member`, `confirm` (optional) | Takes a member out of the organisation: they can no longer open it, and the API keys they made for it stop working. Their seat is free again. Only an owner can remove an owner, and the last owner stays. Only owners and admins, and an organisation's API key can't; a member of another role leaves in the dashboard. | manage members | yes |
+| `orgs_member_role` | `member`, `role`, `confirm` (optional) | Gives a member another role: admin, developer, billing or viewer, or owner. What each role may do is in accounts_list. Only an owner can make someone an owner or change an owner's role, and the last owner keeps the role. Only owners and admins; an organisation's API key can't. | manage members | yes |
+| `orgs_members_list` | none | The organisation this connection acts for: its name, address, whether its plan is active, how many seats are used of how many, and every member with their role (owner, admin, developer, billing, viewer). Only for an organisation; accounts_list shows which accounts are organisations. | read |  |
+| `orgs_sso_domain_add` | `domain` | Claims an email domain, like example.com, for the organisation's single sign-on. The answer has the TXT record (txtName, txtValue) to add at the domain's DNS provider; orgs_sso_domain_verify then checks it. Only owners and admins, signed in. | manage settings |  |
+| `orgs_sso_domain_remove` | `domain`, `confirm` (optional) | Takes an email domain off the organisation's single sign-on. People with addresses there no longer sign in through the identity provider by their address. Only owners and admins, signed in. | manage settings | yes |
+| `orgs_sso_domain_verify` | `domain` | Looks up the TXT record of a claimed email domain now and verifies the domain when it is there. lastError says what was missing: missing (no record yet) or mismatch (a record with another value). DNS changes can take a while to show. Only owners and admins, signed in. | manage settings |  |
+| `orgs_sso_get` | none | The organisation's single sign-on: whether it is required and in effect, the role new people get, who may sign in to its apps, the identity provider (never its secret), and each email domain with whether it is verified and the TXT record that proves it. Only owners and admins, signed in; an organisation's API key can't. | manage settings |  |
+| `orgs_update` | `name` (optional), `billingEmail` (optional) | Renames the organisation or changes the address its invoices go to. Its web address and the apps' addresses stay as they are. Only owners and admins; an organisation's API key can't. | manage settings |  |
+
+## Mail settings
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `notifications_get` | none | Which mails the person gets from blitz.cloud, topic by topic as Settings, Notifications lists them. always: true marks mails that can't be switched off (account, security, billing, service notices). The settings are the person's own, the same in every account they act for. | read |  |
+| `notifications_set` | `topic`, `enabled` | Switches one kind of mail on or off for the person, like the switch in Settings, Notifications. topic is a key from notifications_get. Mails about the account, security, billing and service notices are always sent and can't be switched off. Returns every topic as it is now. | read |  |
+
+## Feedback
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `feedback_send` | `message`, `kind` (optional), `topics` (optional) | Sends feedback, a bug report or a feature wish to the blitz.cloud team by mail, with the person's email address to reply to, like the feedback bar in the dashboard. Only send what the person asked to send, in their words. At most 10 per person an hour, dashboard and assistant together. Not for something that needs an answer today: platform_status says whether blitz.cloud has a problem. | read |  |
+
+## AI connections
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `mcp_connection_revoke` | `connection`, `confirm` (optional) | Disconnects an AI app that signed in to the account (mcp_connections_list shows them): its next call is refused and it has to be connected again, with the person signing in. Disconnecting the app this chat runs in ends this connection too. | deploy | yes |
+| `mcp_connections_list` | none | The AI apps connected to this account by signing in, when each connected and was last used, and the account's API keys by name and prefix (never the key itself), as the AI tools page lists them. New keys are made on that page only. | read |  |
+| `mcp_key_revoke` | `key`, `confirm` (optional) | Revokes one of the account's API keys, for a key that got out or is no longer used: every call with it is refused from now on. The key itself is never shown; pick it by its name or prefix from mcp_connections_list. Revoking the key this chat uses ends this connection. A new key is made on the AI tools page of the dashboard. | deploy | yes |
+
+## Platform
+
+| Tool | Arguments | What it does | Needs | Asks first |
+|---|---|---|---|---|
+| `platform_status` | none | Whether blitz.cloud itself has a problem right now, from status.blitz.cloud: the overall state, the parts that are not fully working, and open incidents with their latest update. Check this first when an app is down or the dashboard misbehaves. | read |  |
 
 ## Errors
 
