@@ -6,7 +6,7 @@
     {
       "name": "blitz-cloud",
       "source": "./",
-      "description": "Host apps in the EU from your assistant: App Store, Docker, GitHub, databases, logs.",
+      "description": "Host apps in the EU from your assistant: App Store, Docker, GitHub or your own code without GitHub, databases, logs.",
       "category": "deployment",
       "tags": ["hosting", "deploy", "docker", "app-store", "eu"]
     }
