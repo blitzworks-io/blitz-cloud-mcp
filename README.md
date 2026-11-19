@@ -2,9 +2,9 @@
 
 Host apps by asking your AI assistant.
 
-[blitz.cloud](https://blitz.cloud) is a hosting platform in the EU with a free plan. Its MCP server lets Claude, ChatGPT, Cursor, VS Code and any other MCP client do what you can do in the dashboard: put an app online from the App Store, a Docker image or a GitHub project, give it a database, change its settings, and read its logs when something goes wrong.
+[blitz.cloud](https://blitz.cloud) is a hosting platform in the EU with a free plan. Its MCP server lets Claude, ChatGPT, Cursor, VS Code and any other MCP client do what you can do in the dashboard: put an app online from the App Store, a Docker image, a GitHub project or code your assistant just wrote, give it a database, change its settings, and read its logs when something goes wrong.
 
-Ask "put Uptime Kuma online at uptime" and your assistant installs it from the App Store under `uptime.<your name>.blitz.cloud`, with HTTPS, and tells you when it answers.
+Ask "put Uptime Kuma online at uptime" and your assistant installs it from the App Store under `uptime.<your name>.prod.page`, with HTTPS, and tells you when it answers.
 
 This repository has the setup for each client, examples for scripts, the tool reference, and how sign-in and permissions work. The server itself is hosted by blitz.cloud, so there is nothing here to install or run.
 
@@ -74,6 +74,7 @@ Ready-made files are in [`examples/`](examples).
 - "What do I have running, and is anything broken?"
 - "Put Vaultwarden online at vault and tell me when it's up."
 - "Deploy my GitHub repo acme/shop at shop, with a PostgreSQL database."
+- "Put the app we just built online at todo. I don't have GitHub."
 - "My blog stopped working. Look at its logs and tell me why."
 - "Set SMTP_HOST on the blog to smtp.example.com."
 - "Add a TXT record for _dmarc so my mail provider can verify me."
@@ -83,17 +84,30 @@ Ready-made files are in [`examples/`](examples).
 
 | Tools | What they do |
 |---|---|
-| `apps_*` | List apps, show one, deploy from the App Store, a Docker image or a GitHub project, change name, address, port or nightly updates, restart, pause, resume, delete |
+| `apps_*` | List apps, show one, deploy from the App Store, a Docker image, a GitHub project or code sent in the chat, change name, address, port or nightly updates, restart, pause, resume, delete |
+| `apps_source_*` | Read, change and download the code of an app kept at blitz.cloud, or get a one-hour token to `git push` it |
 | `store_*` | Search the App Store and Docker Hub |
-| `builds_*` | Build a GitHub project again, list its builds and why one failed |
-| `dbs_*` | List, create, connect to an app, restart and delete PostgreSQL, MariaDB and Redis databases |
+| `builds_*` | Build an app's code again, list its builds and why one failed |
+| `dbs_*` | List, create, connect to an app, restart and delete PostgreSQL, MariaDB and Redis databases, and open one to your own computer over your private network |
 | `env_*` | List, read, set and remove an app's environment variables |
 | `domains_*` | List, add and remove DNS records under your address |
 | `network_*` | See your private networks and make an app private or public |
 | `logs_tail` | The last lines an app printed, or what it printed before its last restart |
 | `usage_get` | Your plan and how much of it is used |
 
-Every tool with its arguments is in [docs/tools.md](docs/tools.md). The server's own list, which is always current, is on the AI tools page in the dashboard.
+That's the short version. All 195 tools with their arguments are in [docs/tools.md](docs/tools.md). The server's own list, which is always current, is on the AI tools page in the dashboard.
+
+## Put code online without GitHub
+
+Your assistant can host an app it wrote for you even if you have no GitHub account. blitz.cloud keeps the code, builds it from the `Dockerfile` at the top of the project and runs it under your address.
+
+- In a chat client such as Claude or ChatGPT, the assistant sends the files inside a tool call with `apps_deploy_code`, up to 4 MB at a time. Later changes go in with `apps_source_write`. A new chat can pick up where the last one stopped, because it reads the saved code back with `apps_source_list` and `apps_source_read`.
+- Agents with a shell, such as Claude Code, Codex or Cursor, can use git. `apps_source_git_access` returns an address on `git.blitz.cloud` and a token that works for one hour, for that one app. Pushing the app's branch saves a new version and builds it.
+- You can take the code with you at any time: `apps_source_download` returns a link to a ZIP of any saved version.
+
+Passwords and keys never go in as files: the server refuses `.env` and key files, and the values go into the app's settings instead. Each app keeps 50 MB of code and its last 20 versions on the free plan, 500 MB and 100 versions on Pro.
+
+A plain website (HTML, CSS, pictures, nothing that runs on a server) is simpler still: `apps_site_upload_start` and `apps_deploy_site` put a ZIP of it online.
 
 ## You stay in control
 
@@ -120,7 +134,7 @@ A key is shown once, only its hash is stored, and you can have five. [`examples/
 
 - 120 calls a minute for each key or connected app, 20 of which may change something.
 - Changes need a confirmed email address.
-- Connecting a Tailscale or WireGuard network isn't a tool. It needs a secret or a config file, which belongs in the dashboard rather than in a chat.
+- Adding a WireGuard device or uploading your own WireGuard config happens in the dashboard, because those hold a private key that doesn't belong in a chat. Tailscale works from the chat: `network_connect_tailscale` returns a link you sign in with.
 
 ## Links
 
