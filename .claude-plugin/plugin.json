@@ -5,8 +5,10 @@
   "version": "1.1.1",
   "author": { "name": "BlitzWorks", "url": "https://blitz.cloud" },
   "homepage": "https://blitz.cloud/docs/ai-assistants/",
+  "privacyPolicyUrl": "https://blitz.cloud/privacy/",
   "repository": "https://github.com/blitzworks-io/blitz-cloud-mcp",
   "license": "MIT",
+  "icon": ".claude-plugin/icon.png",
   "keywords": ["hosting", "deploy", "docker", "app-store", "eu"],
   "mcpServers": {
     "blitz": {
