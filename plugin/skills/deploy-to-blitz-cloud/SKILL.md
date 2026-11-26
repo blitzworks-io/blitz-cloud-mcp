@@ -37,7 +37,7 @@ Use the `blitz` MCP tools (see the server's own tool list, or docs/tools.md in b
 
 ## Free plan and always-on
 
-A free app sleeps after a period with no traffic and wakes again on the next visit, which takes a few seconds. Keeping an app always-on, or giving it more resources, needs a paid plan. Don't quote a price from memory: call `usage_get` (the user's current plan) or point them to the app's entry in `store_search` / the dashboard for the current number, because plans and prices change. If they ask what their plan allows, read it from there.
+A free app sleeps after a while without visitors and wakes on the next visit, which usually takes 20 seconds to a minute. There are two ways to keep it awake: a Pro app keeps that one app online, and the Pro plan keeps every app on the account online and gives it more room. Don't quote a price from memory: call `plans_list` for the current plans and Pro app prices, and `usage_get` for what the user's own plan allows, because prices change.
 
 ## Stay in character
 
