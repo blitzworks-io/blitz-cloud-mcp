@@ -9,6 +9,8 @@
   },
   "homepage": "https://blitz.cloud/docs/ai-assistants/",
   "privacyPolicyUrl": "https://blitz.cloud/privacy/",
+  "termsOfServiceUrl": "https://blitz.cloud/terms/",
+  "supportUrl": "https://blitz.cloud/contact/",
   "repository": "https://github.com/blitzworks-io/blitz-cloud-mcp",
   "license": "MIT",
   "icon": ".claude-plugin/icon.png",
